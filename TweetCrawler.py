@@ -151,6 +151,7 @@ if __name__ == "__main__":
         credentials = [auth_dct]
     else:
         credentials = get_credentials(parser.authcsv)
+
 # TODO: use pandas to accumulate the crawled data and export easily as csv file
 # TODO: reading from csv files for auth credentials can also be optimized using pandas
 # TODO: check for robust handling of in memory data. Can be a problem in case of large crawls.
