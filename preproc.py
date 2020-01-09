@@ -54,10 +54,10 @@ def get_political_handles(list_file=['files/inc_handles.txt', 'files/bjp_handles
     return (ls_fin)
 
 
-def init_twitter_API(consumer_key='PaotgdTaxqqNMqeV4dG0Vs3oM',
-                     consumer_secret='fhkkKgTg3yp2BDP7M1hKJDyo6Dmo3H7xZqoWiUrNkTR9B4it8M',
-                     access_token='173773260-gObDFYJNDu2SK3xesi8zkJxdJV2noZm6V5rip02Q',
-                     access_token_secret='IM5KIeytpkIjwKn5GIOQvUvflP6efR136HlvcJSeyneCX'):
+def init_twitter_API(consumer_key=None,
+                     consumer_secret=None,
+                     access_token=None,
+                     access_token_secret=None):
     """Initialize twitter API using keys
 
     Returns:
@@ -69,10 +69,6 @@ def init_twitter_API(consumer_key='PaotgdTaxqqNMqeV4dG0Vs3oM',
         access_token (str, optional): Access token obtained from twitter API
         access_token_secret (str, optional): Access token secret obtained from twitter API
     """
-    consumer_key = 'PaotgdTaxqqNMqeV4dG0Vs3oM'
-    consumer_secret = 'fhkkKgTg3yp2BDP7M1hKJDyo6Dmo3H7xZqoWiUrNkTR9B4it8M'
-    access_token = '173773260-gObDFYJNDu2SK3xesi8zkJxdJV2noZm6V5rip02Q'
-    access_token_secret = 'IM5KIeytpkIjwKn5GIOQvUvflP6efR136HlvcJSeyneCX'
     auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
     auth.set_access_token(access_token, access_token_secret)
     api = tweepy.API(auth)
