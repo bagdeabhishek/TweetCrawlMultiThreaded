@@ -201,3 +201,4 @@ if __name__ == "__main__":
 # TODO: Fix logging, generic exceptions eat up errors
 # TODO: Add search by hashtags
 # TODO: add configuration file option
+# TODO: Use Docker Compose
