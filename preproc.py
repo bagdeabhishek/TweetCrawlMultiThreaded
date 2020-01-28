@@ -336,20 +336,6 @@ def pg_get_conn(database="fakenews", user="fakenews", password="fnd"):
         print(str(e))
 
 
-def insert_into_postgres(item, conn):
-    keys = list(item.keys())
-    values = [item[x] for x in keys]
-    #     print(keys,values)
-    try:
-        cur = conn.cursor()
-        cur.execute('insert into tweet_articles_tweepy(%s) values %s;',
-                    (psycopg2.extensions.AsIs(','.join(keys)), tuple(values)))
-        cur.close()
-    except Exception as e:
-        print("Postgres Failed " + str(e))
-        #         print(keys,values)
-        return False
-    return True
 
 
 def get_clean_urls(text_list, list_to_exclude=['twitter']):
