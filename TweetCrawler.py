@@ -13,6 +13,9 @@ import psycopg2
 import tweepy
 from bs4 import BeautifulSoup
 
+logging.basicConfig()
+logger = logging.getLogger().setLevel(logging.INFO)
+
 
 def get_credentials(authfile):
     try:
@@ -27,7 +30,7 @@ def get_credentials(authfile):
                 credentials_list.append(dct)
         return credentials_list
     except FileNotFoundError as e:
-        logging.error("Cannot read credentials from file: " + str(e))
+        logger.error("Cannot read credentials from file: " + str(e))
         sys.exit("Exiting Fatal Error")
 
 
@@ -50,7 +53,7 @@ def pg_get_conn(database, user, password, host, port):
         conn.autocommit = True
         return conn
     except psycopg2.DatabaseError as e:
-        logging.error("Problem Connecting to database:  " + str(e))
+        logger.error("Problem Connecting to database:  " + str(e))
 
 
 def insert_into_postgres(posts, conn):
@@ -64,7 +67,7 @@ def insert_into_postgres(posts, conn):
                         (psycopg2.extensions.AsIs(','.join(keys)), tuple(values)))
             cur.close()
         except psycopg2.DatabaseError as e:
-            logging.critical("Insert Failed " + str(e))
+            logger.critical("Insert Failed " + str(e))
 
 
 def init_twitterAPI(dct):
@@ -81,7 +84,7 @@ def init_twitterAPI(dct):
 def crawl_twitter(curr_id, api, conn, output_folder):
     try:
         posts = []
-        logging.info("Crawling handle " + curr_id)
+        logger.info("Crawling handle " + curr_id)
         for post in tweepy.Cursor(api.user_timeline, id=curr_id, summary=False, tweet_mode="extended").items():
             dc = {}
             curr_post = post._json
@@ -123,7 +126,7 @@ def crawl_twitter(curr_id, api, conn, output_folder):
             df = pd.DataFrame(posts)
             df.to_csv(csv_file)
     except tweepy.error.TweepError as e:
-        logging.error("Can't crawl ID " + str(curr_id) + " exception: " + str(e))
+        logger.error("Can't crawl ID " + str(curr_id) + " exception: " + str(e))
 
 
 def process(q, api, conn, output_csv):
@@ -141,7 +144,7 @@ def get_queue(file):
                 q.put(line)
         return q
     except FileNotFoundError as e:
-        logging.error("Problem reading handles file: " + str(e))
+        logger.error("Problem reading handles file: " + str(e))
         sys.exit("Exiting Fatal Error")
 
 
@@ -189,7 +192,7 @@ if __name__ == "__main__":
             configuration['authcsv'] = get_credentials(auth_file) if auth_file else get_user_input('twitterauth')
             configuration['handles'] = config.get(section, "handlesFile")
         else:
-            logging.error("Config file missing twitter section")
+            logger.error("Config file missing twitter section")
             sys.exit("Critical Error")
         if 'System' in sections:
             section = "System"
