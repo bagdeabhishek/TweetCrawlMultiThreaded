@@ -27,11 +27,11 @@ def get_credentials(authfile):
                 credentials_list.append(dct)
         return credentials_list
     except FileNotFoundError as e:
-        logging.error("Cannot read credentials from file: File Not found")
+        logging.error("Cannot read credentials from file: " + str(e))
         sys.exit("Exiting Fatal Error")
 
 
-def pg_get_conn(database="abhishek", user="abhishek", password=""):
+def pg_get_conn(database, user, password, host, port):
     """Get Postgres connection for fakenews
 
     Returns:
@@ -41,10 +41,12 @@ def pg_get_conn(database="abhishek", user="abhishek", password=""):
         database (str, optional): Name of database
         user (str, optional): Name of User
         password (str, optional): Password of user
+        :param host:
+        :type host:
     """
     try:
         conn = psycopg2.connect(database=database,
-                                user=user, password=password, host='headless.nick', port='5432')
+                                user=user, password=password, host=host, port=port)
         conn.autocommit = True
         return conn
     except psycopg2.DatabaseError as e:
@@ -145,8 +147,12 @@ def get_queue(file):
 
 def init_crawler(no_of_threads, auth_list, db_credentials, handles_file, target_folder):
     q = get_queue(handles_file);
-    conn = pg_get_conn(database=db_credentials["dbname"], user=db_credentials["dbuser"],
-                       password=db_credentials["dbpass"]) if db_credentials else None
+    if db_credentials:
+        conn = pg_get_conn(db_credentials["dbname"], db_credentials["dbuser"],
+                           db_credentials["dbpass"], db_credentials["dbhost"],
+                           db_credentials["dbport"])
+    else:
+        conn = None
     for i in range(int(no_of_threads)):
         api = init_twitterAPI(auth_list[i % len(auth_list)])
         worker = Thread(target=process, args=(q, api, conn, target_folder))
@@ -233,3 +239,4 @@ if __name__ == "__main__":
 # TODO: add configuration file option
 # TODO: Use Docker Compose
 # TODO: put config methods in a helper class
+# TODO: add elastic search to postgres as backend
