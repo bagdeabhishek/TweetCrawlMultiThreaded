@@ -299,3 +299,4 @@ if __name__ == "__main__":
 # TODO: Use Docker Compose
 # TODO: put config methods in a helper class
 # TODO: add elastic search to postgres as backend
+# TODO: filter directly from database itself by crawled and to crawl ID
