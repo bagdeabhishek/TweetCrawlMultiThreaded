@@ -168,66 +168,124 @@ def get_user_input(input_type):
         return auth_dct
 
 
+def get_conf_file():
+    configuration = {}
+    config = configparser.ConfigParser()
+    config.read('./tweet.ini')
+    sections = config.sections()
+    if 'Database' in sections:
+        section = "Database"
+        configuration['db_credentials'] = {'dbname': config.get(section, 'dbname'),
+                                           'dbuser': config.get(section, 'dbuser'),
+                                           'dbpass': config.get(section, 'dbpass'),
+                                           'dbhost': config.get(section, 'dbhost'),
+                                           'dbport': config.get(section, 'dbport')}
+    else:
+        configuration['db_credentials'] = None
+    if 'Twitter' in sections:
+        section = "Twitter"
+        auth_file = config.get(section, 'authCSV')
+        configuration['authcsv'] = get_credentials(auth_file) if auth_file else get_user_input('twitterauth')
+        configuration['handles'] = config.get(section, "handlesFile")
+    else:
+        logging.error("Config file missing twitter section")
+        sys.exit("Critical Error")
+    if 'System' in sections:
+        section = "System"
+        configuration["threads"] = config.get(section, "Threads")
+        configuration["target_folder"] = config.get(section, "CSVFolder")
+    return configuration
+
+
+def get_next_level_handles(database, user, password, host, port, rt=True):
+    with pg_get_conn(database, user, password, host, port) as conn:
+        cur = conn.cursor()
+        if rt:
+            cur.execute("""Select retweeted_status_user_handle from tweet_articles_tweepy""")
+        else:
+            cur.execute("""Select * from tweet_articles_tweepy""")
+        ans = cur.fetchall()
+    lse = set(x[0].replace("{", "").replace("}", "") for x in ans) if not rt else set(x[0] for x in ans)
+    ans_handles = []
+    if not rt:
+        for x in lse:
+            for y in x.split(","):
+                if y != '':
+                    ans_handles.append(y)
+    else:
+        ans_handles = list(lse)
+    return ans_handles
+
+
+def write_next_handles(new_handles, path_old_file):
+    old_handles = set()
+    with open(path_old_file) as o_handles:
+        for o_handle in o_handles:
+            if o_handle.startswith('@'):
+                o_handle = o_handle.replace('@', '')
+            old_handles.add(o_handle)
+    new_handles = set(new_handles)
+    next_level_handles = new_handles.difference(old_handles)
+    with open(path_old_file + ".bk", 'a') as f:
+        for item in old_handles:
+            f.write("%s\n" % item)
+    with open(path_old_file, 'w') as f:
+        for item in next_level_handles:
+            f.write("%s\n" % item)
+
+
+def repopulate_handles(conf):
+    handles = get_next_level_handles(conf['db_credentials']['dbname'], conf['db_credentials']['dbuser'],
+                                     conf['db_credentials']['dbpass'], conf['db_credentials']['dbhost'],
+                                     conf['db_credentials']['dbport'])
+    write_next_handles(handles, conf['handles'])
+
+
+def get_conf_user():
+    configuration = {}
+    parser = argparse.ArgumentParser(description="Multi-Threaded crawler for crawling Twitter")
+    parser.add_argument("--authcsv", default=None,
+                        help="The path to the csv file containing authorization tokens for twitter")
+    parser.add_argument("--dbname", default=None, help="Postgres database in which to enter the crawled data")
+    parser.add_argument("--dbuser", default=None, help="User name for the Postgres database ")
+    parser.add_argument("--threads", default=1, help="Number of threads to use for crawling")
+    parser.add_argument("--handles", default='./handles.txt',
+                        help="Path to file containing the handles(each on newline) to crawl")
+    parser.add_argument("--folder", default='./tweets/',
+                        help="Path to folder where tweets CSV file would be dumped")
+    parser.add_argument("-r", default=None,
+                        help="Populate the handles file, pass anything as value")
+    args = parser.parse_args()
+    if len(sys.argv) <= 3:
+        conf = get_conf_file()
+        if args.r:
+            repopulate_handles(conf)
+            sys.exit("Reset the handles file successfully")
+        return conf
+    configuration["threads"] = args.threads
+    configuration["target_folder"] = args.folder
+    if not args.handles:
+        parser.error("No handles file specified !")
+    else:
+        configuration['handles'] = args.handles
+    if bool(args.dbname) ^ bool(args.dbuser):  # check if only one of db parameter is set. Used XOR
+        parser.error("Both --dbname and --dbuser should be set, you've set only one of them")
+    if args.dbname:
+        configuration['db_credentials'] = {'dbname': args.dbname, 'dbuser': args.dbuser, 'dbpass': getpass.getpass(
+            prompt="Please enter password for the user of the postgres database ")}
+    else:
+        configuration['db_credentials'] = None
+    if not args.authcsv:
+        auth_dct = get_user_input('twitterauth')
+        configuration['authcsv'] = [auth_dct]
+    else:
+        configuration['authcsv'] = get_credentials(args.authcsv)
+    return configuration
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    configuration = {}
-    if os.path.exists("./tweet.ini"):
-        config = configparser.ConfigParser()
-        config.read('./tweet.ini')
-        sections = config.sections()
-        if 'Database' in sections:
-            section = "Database"
-            configuration['db_credentials'] = {'dbname': config.get(section, 'dbname'),
-                                               'dbuser': config.get(section, 'dbuser'),
-                                               'dbpass': config.get(section, 'dbpass'),
-                                               'dbhost': config.get(section, 'dbhost'),
-                                               'dbport': config.get(section, 'dbport')}
-        else:
-            configuration['db_credentials'] = None
-        if 'Twitter' in sections:
-            section = "Twitter"
-            auth_file = config.get(section, 'authCSV')
-            configuration['authcsv'] = get_credentials(auth_file) if auth_file else get_user_input('twitterauth')
-            configuration['handles'] = config.get(section, "handlesFile")
-        else:
-            logging.error("Config file missing twitter section")
-            sys.exit("Critical Error")
-        if 'System' in sections:
-            section = "System"
-            configuration["threads"] = config.get(section, "Threads")
-            configuration["target_folder"] = config.get(section, "CSVFolder")
-
-    else:
-        parser = argparse.ArgumentParser(description="Multi-Threaded crawler for crawling Twitter")
-        parser.add_argument("--authcsv", default=None,
-                            help="The path to the csv file containing authorization tokens for twitter")
-        parser.add_argument("--dbname", default=None, help="Postgres database in which to enter the crawled data")
-        parser.add_argument("--dbuser", default=None, help="User name for the Postgres database ")
-        parser.add_argument("--threads", default=1, help="Number of threads to use for crawling")
-        parser.add_argument("--handles", default='./handles.txt',
-                            help="Path to file containing the handles(each on newline) to crawl")
-        parser.add_argument("--folder", default='./tweets/',
-                            help="Path to folder where tweets CSV file would be dumped")
-        args = parser.parse_args()
-        configuration["threads"] = args.threads
-        configuration["target_folder"] = args.folder
-        if not args.handles:
-            parser.error("No handles file specified !")
-        else:
-            configuration['handles'] = args.handles
-        if bool(args.dbname) ^ bool(args.dbuser):  # check if only one of db parameter is set. Used XOR
-            parser.error("Both --dbname and --dbuser should be set, you've set only one of them")
-        if args.dbname:
-            configuration['db_credentials'] = {'dbname': args.dbname, 'dbuser': args.dbuser, 'dbpass': getpass.getpass(
-                prompt="Please enter password for the user of the postgres database ")}
-        else:
-            configuration['db_credentials'] = None
-        if not args.authcsv:
-            auth_dct = get_user_input('twitterauth')
-            configuration['authcsv'] = [auth_dct]
-        else:
-            configuration['authcsv'] = get_credentials(args.authcsv)
-
+    configuration = get_conf_user()
     init_crawler(no_of_threads=configuration["threads"], auth_list=configuration['authcsv'],
                  db_credentials=configuration['db_credentials'],
                  handles_file=configuration['handles'],
