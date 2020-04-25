@@ -281,6 +281,8 @@ def get_conf_user():
         if args.trending:
             conf['trending'] = True
             logging.info("Crawling trending tweets")
+        else:
+            conf['trending'] = False
         return conf
     configuration["threads"] = args.threads
     configuration["target_folder"] = args.folder
