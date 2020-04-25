@@ -55,14 +55,14 @@ def pg_get_conn(database, user, password, host, port):
         logging.error("Problem Connecting to database:  " + str(e))
 
 
-def insert_into_postgres(posts, conn):
+def insert_into_postgres(posts, conn, tablename):
     for item in posts:
         keys = list(item.keys())
         values = [item[x] for x in keys]
         #     print(keys,values)
         try:
             cur = conn.cursor()
-            cur.execute('insert into tweet_articles_tweepy(%s) values %s;',
+            cur.execute('insert into {}(%s) values %s;'.format(tablename),
                         (psycopg2.extensions.AsIs(','.join(keys)), tuple(values)))
             cur.close()
         except psycopg2.DatabaseError as e:
@@ -80,12 +80,12 @@ def init_twitterAPI(dct):
     return api
 
 
-def crawl_twitter(curr_id, api, conn, output_folder, search=False):
+def crawl_twitter(curr_id, api, conn, output_folder, tablename, search=False):
     try:
         posts = []
         logging.info("Crawling handle " + curr_id)
         if search:
-            cursor = tweepy.Cursor(api.search, q=curr_id, summary=False, tweet_mode="extended").items()
+            cursor = tweepy.Cursor(api.search, q=curr_id, summary=False, tweet_mode="extended", count=100).items()
         else:
             cursor = tweepy.Cursor(api.user_timeline, id=curr_id, summary=False, tweet_mode="extended").items()
         for post in cursor:
@@ -121,7 +121,7 @@ def crawl_twitter(curr_id, api, conn, output_folder, search=False):
                 dc['retweeted_status_user_handle'] = curr_post['retweeted_status']['user']['screen_name']
             posts.append(dc)
         if conn:
-            insert_into_postgres(posts, conn)
+            insert_into_postgres(posts, conn, tablename)
         else:
             if not os.path.exists(output_folder):
                 os.mkdir(output_folder)
@@ -132,10 +132,10 @@ def crawl_twitter(curr_id, api, conn, output_folder, search=False):
         logging.error("Can't crawl ID " + str(curr_id) + " exception: " + str(e))
 
 
-def process(q, api, conn, output_csv, trending):
+def process(q, api, conn, output_csv, trending, tablename):
     while not q.empty():
         curr_id = q.get().split()[0]
-        crawl_twitter(curr_id, api, conn, output_csv, trending)
+        crawl_twitter(curr_id, api, conn, output_csv, tablename, trending)
         q.task_done()
 
 
@@ -161,7 +161,7 @@ def init_crawler(no_of_threads, auth_list, db_credentials, handles_file, target_
         conn = None
     for i in range(int(no_of_threads)):
         api = init_twitterAPI(auth_list[i % len(auth_list)])
-        worker = Thread(target=process, args=(q, api, conn, target_folder, trending))
+        worker = Thread(target=process, args=(q, api, conn, target_folder, trending, db_credentials['tablename']))
         worker.start()
 
 
@@ -185,7 +185,8 @@ def get_conf_file():
                                            'dbuser': config.get(section, 'dbuser'),
                                            'dbpass': config.get(section, 'dbpass'),
                                            'dbhost': config.get(section, 'dbhost'),
-                                           'dbport': config.get(section, 'dbport')}
+                                           'dbport': config.get(section, 'dbport'),
+                                           'tablename': config.get(section, 'tablename')}
     else:
         configuration['db_credentials'] = None
     if 'Twitter' in sections:
