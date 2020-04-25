@@ -13,6 +13,8 @@ import psycopg2
 import tweepy
 from bs4 import BeautifulSoup
 
+INDIA_ID_YAHOO = "23424848"
+
 
 def get_credentials(authfile):
     try:
@@ -78,14 +80,18 @@ def init_twitterAPI(dct):
     return api
 
 
-def crawl_twitter(curr_id, api, conn, output_folder):
+def crawl_twitter(curr_id, api, conn, output_folder, search=False):
     try:
         posts = []
         logging.info("Crawling handle " + curr_id)
-        for post in tweepy.Cursor(api.user_timeline, id=curr_id, summary=False, tweet_mode="extended").items():
+        if search:
+            cursor = tweepy.Cursor(api.search, q=curr_id, summary=False, tweet_mode="extended").items()
+        else:
+            cursor = tweepy.Cursor(api.user_timeline, id=curr_id, summary=False, tweet_mode="extended").items()
+        for post in cursor:
             dc = {}
             curr_post = post._json
-            dc['tweet_from'] = curr_id
+            dc['tweet_from'] = curr_post['user']['screen_name']
             dc['created_at'] = curr_post['created_at']
             ent_status_dct = curr_post.get("entities", False)
             if ent_status_dct:
@@ -126,10 +132,10 @@ def crawl_twitter(curr_id, api, conn, output_folder):
         logging.error("Can't crawl ID " + str(curr_id) + " exception: " + str(e))
 
 
-def process(q, api, conn, output_csv):
+def process(q, api, conn, output_csv, trending):
     while not q.empty():
         curr_id = q.get().split()[0]
-        crawl_twitter(curr_id, api, conn, output_csv)
+        crawl_twitter(curr_id, api, conn, output_csv, trending)
         q.task_done()
 
 
@@ -145,8 +151,8 @@ def get_queue(file):
         sys.exit("Exiting Fatal Error")
 
 
-def init_crawler(no_of_threads, auth_list, db_credentials, handles_file, target_folder):
-    q = get_queue(handles_file);
+def init_crawler(no_of_threads, auth_list, db_credentials, handles_file, target_folder, trending):
+    q = get_queue(handles_file) if not trending else get_trending_handles(auth_list)
     if db_credentials:
         conn = pg_get_conn(db_credentials["dbname"], db_credentials["dbuser"],
                            db_credentials["dbpass"], db_credentials["dbhost"],
@@ -155,7 +161,7 @@ def init_crawler(no_of_threads, auth_list, db_credentials, handles_file, target_
         conn = None
     for i in range(int(no_of_threads)):
         api = init_twitterAPI(auth_list[i % len(auth_list)])
-        worker = Thread(target=process, args=(q, api, conn, target_folder))
+        worker = Thread(target=process, args=(q, api, conn, target_folder, trending))
         worker.start()
 
 
@@ -241,6 +247,14 @@ def repopulate_handles(conf):
     write_next_handles(handles, conf['handles'])
 
 
+def get_trending_handles(auth_dict):
+    api = init_twitterAPI(auth_dict[0])
+    trending_topics = api.trends_place(INDIA_ID_YAHOO)
+    trending_topics_q = Queue()
+    [trending_topics_q.put(trend['query']) for trend in trending_topics[0]['trends']]
+    return trending_topics_q
+
+
 def get_conf_user():
     configuration = {}
     parser = argparse.ArgumentParser(description="Multi-Threaded crawler for crawling Twitter")
@@ -255,12 +269,16 @@ def get_conf_user():
                         help="Path to folder where tweets CSV file would be dumped")
     parser.add_argument("-r", default=None,
                         help="Populate the handles file, pass anything as value")
+    parser.add_argument("-trending", default=False, help="Crawl tweets for currently trending hashtags")
     args = parser.parse_args()
     if len(sys.argv) <= 3:
         conf = get_conf_file()
         if args.r:
             repopulate_handles(conf)
             sys.exit("Reset the handles file successfully")
+        if args.trending:
+            conf['trending'] = True
+            logging.info("Crawling trending tweets")
         return conf
     configuration["threads"] = args.threads
     configuration["target_folder"] = args.folder
@@ -289,7 +307,8 @@ if __name__ == "__main__":
     init_crawler(no_of_threads=configuration["threads"], auth_list=configuration['authcsv'],
                  db_credentials=configuration['db_credentials'],
                  handles_file=configuration['handles'],
-                 target_folder=configuration["target_folder"])
+                 target_folder=configuration["target_folder"],
+                 trending=configuration['trending'])
 
 # TODO: reading from csv files for auth credentials can also be optimized using pandas
 # TODO: check for robust handling of in memory data. Can be a problem in case of large crawls.

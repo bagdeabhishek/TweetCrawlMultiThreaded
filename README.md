@@ -49,3 +49,5 @@ CREATE TABLE public.tweet_articles_tweepy (
 ALTER TABLE ONLY public.tweet_articles_tweepy
     ADD CONSTRAINT tweet_articles_tweepy_pkey PRIMARY KEY (id);
 ```
+ 
+### Update: Added a crawl trending option to crawl all the trending tweets. 
