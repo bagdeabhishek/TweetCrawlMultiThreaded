@@ -268,8 +268,9 @@ def get_conf_user():
     parser.add_argument("--folder", default='./tweets/',
                         help="Path to folder where tweets CSV file would be dumped")
     parser.add_argument("-r", default=None,
-                        help="Populate the handles file, pass anything as value")
-    parser.add_argument("-trending", default=False, help="Crawl tweets for currently trending hashtags")
+                        help="Populate the handles file, pass anything as value", action='store_true')
+    parser.add_argument("-trending", default=False, help="Crawl tweets for currently trending hashtags",
+                        action="store_true")
     args = parser.parse_args()
     if len(sys.argv) <= 3:
         conf = get_conf_file()
