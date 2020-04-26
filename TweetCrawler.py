@@ -14,6 +14,7 @@ import tweepy
 from bs4 import BeautifulSoup
 
 INDIA_ID_YAHOO = "23424848"
+PICKLE_FILE_CRAWLED_DATA = "./crawled.txt"
 
 
 def get_credentials(authfile):
@@ -80,6 +81,11 @@ def init_twitterAPI(dct):
     return api
 
 
+def mark_handle_crawled(curr_id):
+    with open(PICKLE_FILE_CRAWLED_DATA, 'a') as f:
+        f.write(curr_id)
+
+
 def crawl_twitter(curr_id, api, conn, output_folder, tablename, search=False):
     try:
         posts = []
@@ -128,6 +134,7 @@ def crawl_twitter(curr_id, api, conn, output_folder, tablename, search=False):
             csv_file = os.path.join(output_folder, curr_id + ".csv")
             df = pd.DataFrame(posts)
             df.to_csv(csv_file)
+        mark_handle_crawled(curr_id)
     except tweepy.error.TweepError as e:
         logging.error("Can't crawl ID " + str(curr_id) + " exception: " + str(e))
 
@@ -248,11 +255,27 @@ def repopulate_handles(conf):
     write_next_handles(handles, conf['handles'])
 
 
+def get_uncrawled_handles(trending_topics):
+    current_queries = [trend['query'] for trend in trending_topics[0]['trends']]
+    try:
+        crawled_queries = []
+        with open(PICKLE_FILE_CRAWLED_DATA, 'r') as f:
+            crawled_queries = [x for x in f.read()]
+        queries_to_crawl = list(set(current_queries).difference(set(crawled_queries)))
+        if len(queries_to_crawl) <= 0:
+            sys.exit("No new queries to crawl, exiting")
+        return queries_to_crawl
+    except (OSError, IOError, FileNotFoundError) as e:
+        open(PICKLE_FILE_CRAWLED_DATA, 'a').close()
+        return current_queries
+
+
 def get_trending_handles(auth_dict):
     api = init_twitterAPI(auth_dict[0])
     trending_topics = api.trends_place(INDIA_ID_YAHOO)
+    trending_topics = get_uncrawled_handles(trending_topics)
     trending_topics_q = Queue()
-    [trending_topics_q.put(trend['query']) for trend in trending_topics[0]['trends']]
+    [trending_topics_q.put(trend) for trend in trending_topics]
     return trending_topics_q
 
 
