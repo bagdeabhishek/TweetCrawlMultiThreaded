@@ -60,7 +60,6 @@ def insert_into_postgres(posts, conn, tablename):
     for item in posts:
         keys = list(item.keys())
         values = [item[x] for x in keys]
-        #     print(keys,values)
         try:
             cur = conn.cursor()
             cur.execute('insert into {}(%s) values %s;'.format(tablename),
@@ -148,9 +147,10 @@ def crawl_twitter(curr_id, api, conn, output_folder, tablename, search=False):
 
 def process(q, api, conn, output_csv, trending, tablename):
     while not q.empty():
-        curr_id = q.get().split()[0]
+        curr_id = q.get()
         crawl_twitter(curr_id, api, conn, output_csv, tablename, trending)
         q.task_done()
+    sys.exit("Completed Crawling thread exiting")
     return
 
 
@@ -174,15 +174,10 @@ def init_crawler(no_of_threads, auth_list, db_credentials, handles_file, target_
                            db_credentials["dbport"])
     else:
         conn = None
-    list_of_threads = []
     for i in range(int(no_of_threads)):
         api = init_twitterAPI(auth_list[i % len(auth_list)])
         worker = Thread(target=process, args=(q, api, conn, target_folder, trending, db_credentials['tablename']))
         worker.start()
-        list_of_threads.append(worker)
-    for thread in list_of_threads:
-        thread.join()
-    sys.exit("Completed Crawl Exiting")
     return
 
 
