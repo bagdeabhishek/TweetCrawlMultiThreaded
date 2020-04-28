@@ -174,10 +174,15 @@ def init_crawler(no_of_threads, auth_list, db_credentials, handles_file, target_
                            db_credentials["dbport"])
     else:
         conn = None
+    list_of_threads = []
     for i in range(int(no_of_threads)):
         api = init_twitterAPI(auth_list[i % len(auth_list)])
         worker = Thread(target=process, args=(q, api, conn, target_folder, trending, db_credentials['tablename']))
         worker.start()
+        list_of_threads.append(worker)
+    for thread in list_of_threads:
+        thread.join()
+    sys.exit("Completed Crawl Exiting")
     return
 
 
