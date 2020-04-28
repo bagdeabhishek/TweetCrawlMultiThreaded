@@ -87,70 +87,64 @@ def mark_handle_crawled(curr_id):
     return
 
 
-def crawl_twitter(curr_id, api, conn, output_folder, tablename, search=False):
+def crawl_twitter(q, api, conn, output_folder, tablename, search=False):
     try:
-        posts = []
-        logging.info("Crawling handle " + curr_id)
-        if search:
-            cursor = tweepy.Cursor(api.search, q=curr_id, summary=False, tweet_mode="extended",
-                                   count=100).items()
-        else:
-            cursor = tweepy.Cursor(api.user_timeline, id=curr_id, summary=False, tweet_mode="extended").items()
-        try:
-            for post in cursor:
-                dc = {}
-                curr_post = post._json
-                dc['tweet_from'] = curr_post['user']['screen_name']
-                dc['created_at'] = curr_post['created_at']
-                ent_status_dct = curr_post.get("entities", False)
-                if ent_status_dct:
-                    dc['hashtags'] = [x['text'] for x in curr_post['entities']['hashtags']]
-                    dc['urls'] = [x['expanded_url'] for x in curr_post['entities']['urls']]
-                    dc['user_mentions_id'] = [x['id'] for x in curr_post['entities']['user_mentions']]
-                    if 'media' in ent_status_dct:
-                        dc['media'] = [x['media_url_https'] for x in curr_post['entities']['media']]
-                    dc['user_mentions_name'] = [x['screen_name'] for x in curr_post['entities']['user_mentions']]
-                origin_raw_html = BeautifulSoup(curr_post['source'], 'html.parser').a
-                dc['origin_device'] = origin_raw_html.string if origin_raw_html else None
-                dc['favorite_count'] = curr_post['favorite_count']
-                dc['text'] = curr_post['full_text']
-                dc['id'] = curr_post['id']
-                dc['in_reply_to_screen_name'] = curr_post['in_reply_to_screen_name']
-                dc['in_reply_to_user_id'] = curr_post['in_reply_to_user_id']
-                dc['in_reply_to_status_id'] = curr_post['in_reply_to_status_id']
-                dc['retweet_count'] = curr_post['retweet_count']
-                rt_status_dct = curr_post.get('retweeted_status', False)
-                #         adding retweet information because it is important.
-                if rt_status_dct:
-                    dc['retweeted_status_text'] = curr_post['retweeted_status']['full_text']
-                    dc['retweeted_status_url'] = [x['expanded_url'] for x in
-                                                  curr_post['retweeted_status']['entities']['urls']]
-                    dc['retweeted_status_id'] = curr_post['retweeted_status']['id']
-                    dc['retweeted_status_user_name'] = curr_post['retweeted_status']['user']['name']
-                    dc['retweeted_status_user_handle'] = curr_post['retweeted_status']['user']['screen_name']
-                posts.append(dc)
-        except tweepy.error.TweepError as e:
-            logging.error("Can't crawl tweet, possibly parser error: " + str(curr_id) + " exception: " + str(e))
-        if conn:
-            insert_into_postgres(posts, conn, tablename)
-        else:
-            if not os.path.exists(output_folder):
-                os.mkdir(output_folder)
-            csv_file = os.path.join(output_folder, curr_id + ".csv")
-            df = pd.DataFrame(posts)
-            df.to_csv(csv_file)
-        mark_handle_crawled(curr_id)
+        while not q.empty():
+            curr_id = q.get()
+            posts = []
+            logging.info("Crawling handle " + curr_id)
+            if search:
+                cursor = tweepy.Cursor(api.search, q=curr_id, summary=False, tweet_mode="extended",
+                                       count=100).items()
+            else:
+                cursor = tweepy.Cursor(api.user_timeline, id=curr_id, summary=False, tweet_mode="extended").items()
+            try:
+                for post in cursor:
+                    dc = {}
+                    curr_post = post._json
+                    dc['tweet_from'] = curr_post['user']['screen_name']
+                    dc['created_at'] = curr_post['created_at']
+                    ent_status_dct = curr_post.get("entities", False)
+                    if ent_status_dct:
+                        dc['hashtags'] = [x['text'] for x in curr_post['entities']['hashtags']]
+                        dc['urls'] = [x['expanded_url'] for x in curr_post['entities']['urls']]
+                        dc['user_mentions_id'] = [x['id'] for x in curr_post['entities']['user_mentions']]
+                        if 'media' in ent_status_dct:
+                            dc['media'] = [x['media_url_https'] for x in curr_post['entities']['media']]
+                        dc['user_mentions_name'] = [x['screen_name'] for x in curr_post['entities']['user_mentions']]
+                    origin_raw_html = BeautifulSoup(curr_post['source'], 'html.parser').a
+                    dc['origin_device'] = origin_raw_html.string if origin_raw_html else None
+                    dc['favorite_count'] = curr_post['favorite_count']
+                    dc['text'] = curr_post['full_text']
+                    dc['id'] = curr_post['id']
+                    dc['in_reply_to_screen_name'] = curr_post['in_reply_to_screen_name']
+                    dc['in_reply_to_user_id'] = curr_post['in_reply_to_user_id']
+                    dc['in_reply_to_status_id'] = curr_post['in_reply_to_status_id']
+                    dc['retweet_count'] = curr_post['retweet_count']
+                    rt_status_dct = curr_post.get('retweeted_status', False)
+                    #         adding retweet information because it is important.
+                    if rt_status_dct:
+                        dc['retweeted_status_text'] = curr_post['retweeted_status']['full_text']
+                        dc['retweeted_status_url'] = [x['expanded_url'] for x in
+                                                      curr_post['retweeted_status']['entities']['urls']]
+                        dc['retweeted_status_id'] = curr_post['retweeted_status']['id']
+                        dc['retweeted_status_user_name'] = curr_post['retweeted_status']['user']['name']
+                        dc['retweeted_status_user_handle'] = curr_post['retweeted_status']['user']['screen_name']
+                    posts.append(dc)
+            except tweepy.error.TweepError as e:
+                logging.error("Can't crawl tweet, possibly parser error: " + str(curr_id) + " exception: " + str(e))
+            if conn:
+                insert_into_postgres(posts, conn, tablename)
+            else:
+                if not os.path.exists(output_folder):
+                    os.mkdir(output_folder)
+                csv_file = os.path.join(output_folder, curr_id + ".csv")
+                df = pd.DataFrame(posts)
+                df.to_csv(csv_file)
+            mark_handle_crawled(curr_id)
+            q.task_done()
     except tweepy.error.TweepError as e:
         logging.error("Can't crawl ID, error in Cursor" + str(curr_id) + " exception: " + str(e))
-    return
-
-
-def process(q, api, conn, output_csv, trending, tablename):
-    while not q.empty():
-        curr_id = q.get()
-        crawl_twitter(curr_id, api, conn, output_csv, tablename, trending)
-        q.task_done()
-    sys.exit("Completed Crawling thread exiting")
     return
 
 
@@ -176,7 +170,7 @@ def init_crawler(no_of_threads, auth_list, db_credentials, handles_file, target_
         conn = None
     for i in range(int(no_of_threads)):
         api = init_twitterAPI(auth_list[i % len(auth_list)])
-        worker = Thread(target=process, args=(q, api, conn, target_folder, trending, db_credentials['tablename']))
+        worker = Thread(target=crawl_twitter, args=(q, api, conn, target_folder, db_credentials['tablename'], trending))
         worker.start()
     return
 
