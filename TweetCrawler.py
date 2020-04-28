@@ -68,6 +68,7 @@ def insert_into_postgres(posts, conn, tablename):
             cur.close()
         except psycopg2.DatabaseError as e:
             logging.critical("Insert Failed " + str(e))
+    return
 
 
 def init_twitterAPI(dct):
@@ -84,6 +85,7 @@ def init_twitterAPI(dct):
 def mark_handle_crawled(curr_id):
     with open(PICKLE_FILE_CRAWLED_DATA, 'a') as f:
         f.write(curr_id + '\n')
+    return
 
 
 def crawl_twitter(curr_id, api, conn, output_folder, tablename, search=False):
@@ -91,7 +93,8 @@ def crawl_twitter(curr_id, api, conn, output_folder, tablename, search=False):
         posts = []
         logging.info("Crawling handle " + curr_id)
         if search:
-            cursor = tweepy.Cursor(api.search, q=curr_id, summary=False, tweet_mode="extended", count=100).items()
+            cursor = tweepy.Cursor(api.search, q=curr_id, summary=False, tweet_mode="extended",
+                                   count=100).items()
         else:
             cursor = tweepy.Cursor(api.user_timeline, id=curr_id, summary=False, tweet_mode="extended").items()
         try:
@@ -140,6 +143,7 @@ def crawl_twitter(curr_id, api, conn, output_folder, tablename, search=False):
         mark_handle_crawled(curr_id)
     except tweepy.error.TweepError as e:
         logging.error("Can't crawl ID, error in Cursor" + str(curr_id) + " exception: " + str(e))
+    return
 
 
 def process(q, api, conn, output_csv, trending, tablename):
@@ -147,6 +151,7 @@ def process(q, api, conn, output_csv, trending, tablename):
         curr_id = q.get().split()[0]
         crawl_twitter(curr_id, api, conn, output_csv, tablename, trending)
         q.task_done()
+    return
 
 
 def get_queue(file):
@@ -173,6 +178,7 @@ def init_crawler(no_of_threads, auth_list, db_credentials, handles_file, target_
         api = init_twitterAPI(auth_list[i % len(auth_list)])
         worker = Thread(target=process, args=(q, api, conn, target_folder, trending, db_credentials['tablename']))
         worker.start()
+    return
 
 
 def get_user_input(input_type):
@@ -249,6 +255,7 @@ def write_next_handles(new_handles, path_old_file):
     with open(path_old_file, 'w') as f:
         for item in next_level_handles:
             f.write("%s\n" % item)
+    return
 
 
 def repopulate_handles(conf):
@@ -256,6 +263,7 @@ def repopulate_handles(conf):
                                      conf['db_credentials']['dbpass'], conf['db_credentials']['dbhost'],
                                      conf['db_credentials']['dbport'])
     write_next_handles(handles, conf['handles'])
+    return
 
 
 def get_uncrawled_handles(trending_topics):
