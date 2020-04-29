@@ -57,11 +57,11 @@ def pg_get_conn(database, user, password, host, port):
 
 
 def insert_into_postgres(posts, conn, tablename):
+    cur = conn.cursor()
     for item in posts:
         keys = list(item.keys())
         values = [item[x] for x in keys]
         try:
-            cur = conn.cursor()
             cur.execute('insert into {}(%s) values %s;'.format(tablename),
                             (psycopg2.extensions.AsIs(','.join(keys)), tuple(values)))
             cur.close()
