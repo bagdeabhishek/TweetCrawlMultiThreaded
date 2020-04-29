@@ -61,9 +61,10 @@ def insert_into_postgres(posts, conn, tablename):
         keys = list(item.keys())
         values = [item[x] for x in keys]
         try:
-            with conn.cursor(name="AB_cursor") as cur:
-                cur.execute('insert into {}(%s) values %s;'.format(tablename),
+            cur = conn.cursor()
+            cur.execute('insert into {}(%s) values %s;'.format(tablename),
                             (psycopg2.extensions.AsIs(','.join(keys)), tuple(values)))
+            cur.close()
         except psycopg2.DatabaseError as e:
             logging.critical("Insert Failed " + str(e))
     return
