@@ -56,14 +56,15 @@ def pg_get_conn(database, user, password, host, port):
         logging.error("Problem Connecting to database:  " + str(e))
 
 
-def insert_into_postgres(posts, conn, tablename):
+def insert_into_postgres(posts, conn, tablename, curr_id):
     for item in posts:
         keys = list(item.keys())
         values = [item[x] for x in keys]
         try:
-            with conn.cursor(name="AB_cursor") as cur:
-                cur.execute('insert into {}(%s) values %s;'.format(tablename),
+            cur = conn.cursor(name=curr_id, withhold=True)
+            cur.execute('insert into {}(%s) values %s;'.format(tablename),
                             (psycopg2.extensions.AsIs(','.join(keys)), tuple(values)))
+            cur.close
         except psycopg2.DatabaseError as e:
             logging.critical("Insert Failed " + str(e))
     return
@@ -133,7 +134,7 @@ def crawl_twitter(q, api, conn, output_folder, tablename, search=False):
             except tweepy.error.TweepError as e:
                 logging.error("Can't crawl tweet, possibly parser error: " + str(curr_id) + " exception: " + str(e))
             if conn:
-                insert_into_postgres(posts, conn, tablename)
+                insert_into_postgres(posts, conn, tablename, curr_id)
             else:
                 if not os.path.exists(output_folder):
                     os.mkdir(output_folder)
