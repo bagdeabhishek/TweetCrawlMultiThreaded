@@ -56,15 +56,14 @@ def pg_get_conn(database, user, password, host, port):
         logging.error("Problem Connecting to database:  " + str(e))
 
 
-def insert_into_postgres(posts, conn, tablename, curr_id):
+def insert_into_postgres(posts, conn, tablename):
     for item in posts:
         keys = list(item.keys())
         values = [item[x] for x in keys]
         try:
-            cur = conn.cursor(name=curr_id, withhold=True)
-            cur.execute('insert into {}(%s) values %s;'.format(tablename),
+            with conn.cursor(name="AB_cursor") as cur:
+                cur.execute('insert into {}(%s) values %s;'.format(tablename),
                             (psycopg2.extensions.AsIs(','.join(keys)), tuple(values)))
-            cur.close
         except psycopg2.DatabaseError as e:
             logging.critical("Insert Failed " + str(e))
     return
@@ -134,7 +133,7 @@ def crawl_twitter(q, api, conn, output_folder, tablename, search=False):
             except tweepy.error.TweepError as e:
                 logging.error("Can't crawl tweet, possibly parser error: " + str(curr_id) + " exception: " + str(e))
             if conn:
-                insert_into_postgres(posts, conn, tablename, curr_id)
+                insert_into_postgres(posts, conn, tablename)
             else:
                 if not os.path.exists(output_folder):
                     os.mkdir(output_folder)
@@ -162,13 +161,13 @@ def get_queue(file):
 
 def init_crawler(no_of_threads, auth_list, db_credentials, handles_file, target_folder, trending):
     q = get_queue(handles_file) if not trending else get_trending_handles(auth_list)
-    if db_credentials:
-        conn = pg_get_conn(db_credentials["dbname"], db_credentials["dbuser"],
-                           db_credentials["dbpass"], db_credentials["dbhost"],
-                           db_credentials["dbport"])
-    else:
-        conn = None
     for i in range(int(no_of_threads)):
+        if db_credentials:
+            conn = pg_get_conn(db_credentials["dbname"], db_credentials["dbuser"],
+                               db_credentials["dbpass"], db_credentials["dbhost"],
+                               db_credentials["dbport"])
+        else:
+            conn = None
         api = init_twitterAPI(auth_list[i % len(auth_list)])
         worker = Thread(target=crawl_twitter, args=(q, api, conn, target_folder, db_credentials['tablename'], trending))
         worker.start()
