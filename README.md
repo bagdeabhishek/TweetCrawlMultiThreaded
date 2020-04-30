@@ -68,4 +68,9 @@ Even after these optimization the memory utilization increased with time. The or
 that to a Thread pool model. One of the reasons I suspect the original implementation ballooned in memory was because of threads running in loop. 
 As the threads never ended before the crawling handles were exhausted I think GC wasn't kicking in. So instead, we move to a Thread pool model where the threads run and crawl each handle and after they are done they are released to the pool.
 Hopefully this should resolve the issues with memory.  
+
+### Migrating to MultiProcess model
+Given that the Multithreaded model for our crawler is always going to be handicapped by the GIL of python. I thought it'd be better
+if I move the crawler to a multithreaded model. Since we have already moved to the thread pool model the change is simple as changin one line in the code. 
+The only problem is this breaks the crawler for MacOS due to a known [limitation](https://stackoverflow.com/questions/55286016/python-is-crashing-due-to-libdispatch-crashing-child-thread) of Mac OS. I'll probably create a separate branch for the Mac OS 
  
