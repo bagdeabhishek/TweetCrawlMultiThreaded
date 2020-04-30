@@ -87,11 +87,17 @@ def mark_handle_crawled(curr_id):
     return
 
 
-def crawl_twitter(q, api, conn, output_folder, tablename, search=False):
+def crawl_twitter(q, api, db_credentials, output_folder, tablename, search=False):
     try:
         while not q.empty():
             curr_id = q.get()
             posts = []
+            if db_credentials:
+                conn = pg_get_conn(db_credentials["dbname"], db_credentials["dbuser"],
+                                   db_credentials["dbpass"], db_credentials["dbhost"],
+                                   db_credentials["dbport"])
+            else:
+                conn = None
             logging.info("Crawling handle " + curr_id)
             if search:
                 cursor = tweepy.Cursor(api.search, q=curr_id, summary=False, tweet_mode="extended",
@@ -135,6 +141,7 @@ def crawl_twitter(q, api, conn, output_folder, tablename, search=False):
                 logging.error("Can't crawl tweet, possibly parser error: " + str(curr_id) + " exception: " + str(e))
             if conn:
                 insert_into_postgres(posts, conn, tablename)
+                conn.close()
             else:
                 if not os.path.exists(output_folder):
                     os.mkdir(output_folder)
@@ -163,14 +170,9 @@ def get_queue(file):
 def init_crawler(no_of_threads, auth_list, db_credentials, handles_file, target_folder, trending):
     q = get_queue(handles_file) if not trending else get_trending_handles(auth_list)
     for i in range(int(no_of_threads)):
-        if db_credentials:
-            conn = pg_get_conn(db_credentials["dbname"], db_credentials["dbuser"],
-                               db_credentials["dbpass"], db_credentials["dbhost"],
-                               db_credentials["dbport"])
-        else:
-            conn = None
         api = init_twitterAPI(auth_list[i % len(auth_list)])
-        worker = Thread(target=crawl_twitter, args=(q, api, conn, target_folder, db_credentials['tablename'], trending))
+        worker = Thread(target=crawl_twitter,
+                        args=(q, api, db_credentials, target_folder, db_credentials['tablename'], trending))
         worker.start()
     return
 
