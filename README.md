@@ -49,5 +49,18 @@ CREATE TABLE public.tweet_articles_tweepy (
 ALTER TABLE ONLY public.tweet_articles_tweepy
     ADD CONSTRAINT tweet_articles_tweepy_pkey PRIMARY KEY (id);
 ```
+
+### Update:
+Added a crawl trending option to crawl all the trending tweets. Run the program with -trending argument 
+```bash
+python3 TweetCrawler.py -trending
+```
+
+### Bug:
+After adding the code for Trending handles I found out that the crawler had a memory leak which would eat up the whole memory if left unattended.
+I tried to trouble shoot it but there is no eay way to profile memory in Python. Finally looking at the code it became clear that the crawling part was clean.
+I then looked into the postgres part where the first bug was identified right away. The loop which was inserting values in the table was creating a new cursor object every iteration which would've caused the mmeory to balloon. Also it didn't make a lot of sense. So I fixed that.
+
+Next problem was since there was a single connection for all the threads, (which is valid btw according to docs) this causes all the inserts to be serialised and since our code was inserting every tweet crawled this caused a lot of slowdown. Instead we shifted to one connection per thread.
+Even in that case I suspect since we didn't explicitly call close() on connection object, the reference to that connection object was still in memory. So instead for every handle we create a new connection and close it after crawling, this should fix the memory bug but testing is still pending. 
  
-### Update: Added a crawl trending option to crawl all the trending tweets. 
