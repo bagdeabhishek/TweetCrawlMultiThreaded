@@ -58,14 +58,17 @@ def pg_get_conn(database, user, password, host, port):
 
 def insert_into_postgres(posts, conn, tablename):
     cur = conn.cursor()
+    successful_records = len(posts)
     for item in posts:
         keys = list(item.keys())
         values = [item[x] for x in keys]
         try:
             cur.execute('insert into {}(%s) values %s;'.format(tablename),
-                            (psycopg2.extensions.AsIs(','.join(keys)), tuple(values)))
+                        (psycopg2.extensions.AsIs(','.join(keys)), tuple(values)))
         except psycopg2.DatabaseError as e:
-            logging.critical("Insert Failed " + str(e))
+            successful_records -= 1
+    logging.critical("Total tweets inserted successfully:{}, tweets failed:{} ".format(successful_records,
+                                                                                       len(posts) - successful_records))
     cur.close()
     return
 
