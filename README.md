@@ -62,5 +62,10 @@ I tried to trouble shoot it but there is no eay way to profile memory in Python.
 I then looked into the postgres part where the first bug was identified right away. The loop which was inserting values in the table was creating a new cursor object every iteration which would've caused the mmeory to balloon. Also it didn't make a lot of sense. So I fixed that.
 
 Next problem was since there was a single connection for all the threads, (which is valid btw according to docs) this causes all the inserts to be serialised and since our code was inserting every tweet crawled this caused a lot of slowdown. Instead we shifted to one connection per thread.
-Even in that case I suspect since we didn't explicitly call close() on connection object, the reference to that connection object was still in memory. So instead for every handle we create a new connection and close it after crawling, this should fix the memory bug but testing is still pending. 
+Even in that case I suspect since we didn't explicitly call close() on connection object, the reference to that connection object was still in memory. So instead for every handle we create a new connection and close it after crawling, this should fix the memory bug but testing is still pending.
+
+Even after these optimization the memory utilization increased with time. The original approach to threading was naive and was intended as proof of concept, I changed 
+that to a Thread pool model. One of the reasons I suspect the original implementation ballooned in memory was because of threads running in loop. 
+As the threads never ended before the crawling handles were exhausted I think GC wasn't kicking in. So instead, we move to a Thread pool model where the threads run and crawl each handle and after they are done they are released to the pool.
+Hopefully this should resolve the issues with memory.  
  
