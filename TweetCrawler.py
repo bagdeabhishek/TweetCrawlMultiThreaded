@@ -272,10 +272,12 @@ def get_uncrawled_handles(trending_topics):
     try:
         crawled_queries = []
         with open(PICKLE_FILE_CRAWLED_DATA, 'r') as f:
-            crawled_queries = [x for x in f.read()]
+            for line in f.readlines():
+                crawled_queries.append(line.split()[0])
         queries_to_crawl = list(set(current_queries).difference(set(crawled_queries)))
         if len(queries_to_crawl) <= 0:
             sys.exit("No new queries to crawl, exiting")
+        logging.info("Crawling {} new trending handles".format(len(queries_to_crawl)))
         return queries_to_crawl
     except (OSError, IOError, FileNotFoundError) as e:
         open(PICKLE_FILE_CRAWLED_DATA, 'a').close()
