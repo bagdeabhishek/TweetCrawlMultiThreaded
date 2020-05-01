@@ -105,9 +105,10 @@ def crawl_twitter(combined_id_auth_tup, db_credentials, output_folder, tablename
         logging.info("Crawling handle " + curr_id)
         if search:
             cursor = tweepy.Cursor(api.search, q=curr_id, summary=False, tweet_mode="extended",
-                                   count=100).items()
+                                   count=100, include_entities=True).items()
         else:
-            cursor = tweepy.Cursor(api.user_timeline, id=curr_id, summary=False, tweet_mode="extended").items()
+            cursor = tweepy.Cursor(api.user_timeline, id=curr_id, summary=False, tweet_mode="extended",
+                                   include_entities=True).items()
         try:
             for post in cursor:
                 dc = {}
