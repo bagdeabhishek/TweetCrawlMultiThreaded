@@ -181,7 +181,7 @@ def init_crawler(no_of_threads, auth_list, db_credentials, handles_file, target_
         counter += 1
     with ProcessPoolExecutor(max_workers=int(no_of_threads)) as executor:
         executor.map(crawl_twitter, combined_tuple_handle_auth, repeat(db_credentials), repeat(target_folder),
-                     repeat(db_credentials['tablename']), repeat(trending))
+                     repeat(db_credentials['tablename']), repeat(trending), chunksize=int(no_of_threads))
     return
 
 

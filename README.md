@@ -72,5 +72,11 @@ Hopefully this should resolve the issues with memory.
 ### Migrating to MultiProcess model
 Given that the Multithreaded model for our crawler is always going to be handicapped by the GIL of python. I thought it'd be better
 if I move the crawler to a multithreaded model. Since we have already moved to the thread pool model the change is simple as changin one line in the code. 
-The only problem is this breaks the crawler for MacOS due to a known [limitation](https://stackoverflow.com/questions/55286016/python-is-crashing-due-to-libdispatch-crashing-child-thread) of Mac OS. I'll probably create a separate branch for the Mac OS 
+The only problem is this breaks the crawler for MacOS due to a known [limitation](https://stackoverflow.com/questions/55286016/python-is-crashing-due-to-libdispatch-crashing-child-thread) of Mac OS. I'll probably create a separate branch for the Mac OS
+#### Finally solved memory leak
+The memory leak was largely due to the executor.map holding on to futures objects in memory. The executor map function holds in memory all the related objects till all inputs are processed. 
+This becomes problematic in our case since the amount of crawled data is basically unlimited. The program holds all this data in memory which causes the memory consumption of program to ballon.
+The solution in this case is using the __chunksize__ parameter, which maps the data in chunks, this causes the executor object to release memory before continuing with the next chunk.
+  
+ 
  
