@@ -179,9 +179,10 @@ def init_crawler(no_of_threads, auth_list, db_credentials, handles_file, target_
     for handle in list_of_handles:
         combined_tuple_handle_auth.append((handle, api_list[counter % len(auth_list)]))
         counter += 1
+    chunk_size = round(len(list_of_handles) / int(no_of_threads))
     with ProcessPoolExecutor(max_workers=int(no_of_threads)) as executor:
         executor.map(crawl_twitter, combined_tuple_handle_auth, repeat(db_credentials), repeat(target_folder),
-                     repeat(db_credentials['tablename']), repeat(trending), chunksize=int(no_of_threads))
+                     repeat(db_credentials['tablename']), repeat(trending), chunksize=chunk_size)
     return
 
 
