@@ -77,9 +77,6 @@ The only problem is this breaks the crawler for MacOS due to a known [limitation
 The memory leak was largely due to the executor.map holding on to futures objects in memory. The executor map function holds in memory all the related objects till all inputs are processed. 
 This becomes problematic in our case since the amount of crawled data is basically unlimited. The program holds all this data in memory which causes the memory consumption of program to ballon.
 The solution in this case is using the __chunksize__ parameter, which maps the data in chunks, this causes the executor object to release memory before continuing with the next chunk.
-
-#### Finally found relevant PR on github, this should definitely work :( 
-https://github.com/tweepy/tweepy/issues/714 Paginating manually is the only option in case of large number of tweets. 
   
  
  
