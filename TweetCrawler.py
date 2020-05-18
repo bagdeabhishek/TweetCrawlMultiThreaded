@@ -98,7 +98,7 @@ def crawl_twitter(combined_id_auth_tup, db_credentials, output_folder, tablename
     try:
         posts = []
         curr_id, api = combined_id_auth_tup
-        page = 1
+        last_id_pagination = -1
         if db_credentials:
             conn = pg_get_conn(db_credentials["dbname"], db_credentials["dbuser"],
                                db_credentials["dbpass"], db_credentials["dbhost"],
@@ -110,10 +110,10 @@ def crawl_twitter(combined_id_auth_tup, db_credentials, output_folder, tablename
         while True:
             if search:
                 cursor = api.search(q=curr_id, summary=False, tweet_mode="extended",
-                                    count=100, include_entities=True, page=page).items()
+                                    count=100, include_entities=True, max_id=str(last_id_pagination - 1)).items()
             else:
                 cursor = api.user_timeline(id=curr_id, summary=False, tweet_mode="extended",
-                                           include_entities=True, page=page).items()
+                                           include_entities=True, max_id=str(last_id_pagination - 1)).items()
             try:
                 if cursor:
                     counter = 0
@@ -160,6 +160,7 @@ def crawl_twitter(combined_id_auth_tup, db_credentials, output_folder, tablename
                                 csv_file = os.path.join(output_folder, curr_id + ".csv")
                                 df = pd.DataFrame(posts)
                                 df.to_csv(csv_file)
+                            last_id_pagination = posts[-1]['id']
                             posts = []
                 else:
                     break
