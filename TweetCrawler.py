@@ -5,7 +5,7 @@ import getpass
 import logging
 import os
 import sys
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from itertools import repeat
 
 import pandas as pd
@@ -67,14 +67,8 @@ def insert_into_postgres(posts, conn, tablename, curr_id):
                         (psycopg2.extensions.AsIs(','.join(keys)), tuple(values)))
         except psycopg2.DatabaseError as e:
             successful_records -= 1
-
-    logging.critical("{} Handle crawled: Total tweets inserted successfully:{}, tweets failed:{} ".format(curr_id,
-                                                                                                          successful_records,
-                                                                                                          len(
-                                                                                                              posts) - successful_records))
     cur.close()
-
-    return
+    return len(posts) - successful_records
 
 
 def init_twitterAPI(dct):
@@ -106,17 +100,17 @@ def crawl_twitter(combined_id_auth_tup, db_credentials, output_folder, tablename
         else:
             conn = None
         logging.info("Crawling handle " + curr_id)
-
+        counter = 0
+        failed_tweets = 0
         while True:
             if search:
                 cursor = api.search(q=curr_id, summary=False, tweet_mode="extended",
-                                    count=100, include_entities=True, max_id=str(last_id_pagination - 1)).items()
+                                    count=100, include_entities=True, max_id=str(last_id_pagination - 1))
             else:
-                cursor = api.user_timeline(id=curr_id, summary=False, tweet_mode="extended",
-                                           include_entities=True, max_id=str(last_id_pagination - 1)).items()
+                cursor = api.user_timeline(id=curr_id, summary=False, tweet_mode="extended", count=100,
+                                           include_entities=True, max_id=str(last_id_pagination - 1))
             try:
                 if cursor:
-                    counter = 0
                     for post in cursor:
                         dc = {}
                         curr_post = post._json
@@ -151,25 +145,36 @@ def crawl_twitter(combined_id_auth_tup, db_credentials, output_folder, tablename
                             dc['retweeted_status_user_handle'] = curr_post['retweeted_status']['user']['screen_name']
                         posts.append(dc)
                         counter += 1
-                        if counter % 500 == 0:
+                        if counter % 50 == 0:
                             if conn:
-                                insert_into_postgres(posts, conn, tablename, curr_id)
+                                failed_tweets += insert_into_postgres(posts, conn, tablename, curr_id)
                             else:
-                                if not os.path.exists(output_folder):
-                                    os.mkdir(output_folder)
-                                csv_file = os.path.join(output_folder, curr_id + ".csv")
-                                df = pd.DataFrame(posts)
-                                df.to_csv(csv_file)
+                                write_to_csv(output_folder, curr_id, posts)
                             last_id_pagination = int(posts[-1]['id'])
                             posts = []
                 else:
                     break
             except tweepy.error.TweepError as e:
                 logging.error("Can't crawl tweet, possibly parser error: " + str(curr_id) + " exception: " + str(e))
+        if conn:
+            failed_tweets += insert_into_postgres(posts, conn, tablename, curr_id)
+        else:
+            write_to_csv(output_folder, curr_id, posts)
         mark_handle_crawled(curr_id)
+        logging.critical("{} Handle crawled: Total tweets inserted successfully:{}, tweets failed:{} ".format(curr_id,
+                                                                                                              counter - failed_tweets,
+                                                                                                              failed_tweets))
     except tweepy.error.TweepError as e:
         logging.error("Can't crawl ID, error in Cursor" + str(curr_id) + " exception: " + str(e))
     return
+
+
+def write_to_csv(output_folder, curr_id, posts):
+    if not os.path.exists(output_folder):
+        os.mkdir(output_folder)
+    csv_file = os.path.join(output_folder, curr_id + ".csv")
+    df = pd.DataFrame(posts)
+    df.to_csv(csv_file, mode='a', header=False)
 
 
 def get_queue(file):
@@ -193,7 +198,9 @@ def init_crawler(no_of_threads, auth_list, db_credentials, handles_file, target_
         combined_tuple_handle_auth.append((handle, api_list[counter % len(auth_list)]))
         counter += 1
     chunk_size = round(len(list_of_handles) / int(no_of_threads))
-    with ProcessPoolExecutor(max_workers=int(no_of_threads)) as executor:
+    executor = ThreadPoolExecutor(max_workers=int(no_of_threads)) if sys.platform == "darwin" else ProcessPoolExecutor(
+        max_workers=int(no_of_threads))
+    with executor:
         executor.map(crawl_twitter, combined_tuple_handle_auth, repeat(db_credentials), repeat(target_folder),
                      repeat(db_credentials['tablename']), repeat(trending), chunksize=chunk_size)
     return
