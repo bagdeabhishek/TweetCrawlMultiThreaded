@@ -110,6 +110,7 @@ def crawl_twitter(combined_id_auth_tup, db_credentials, output_folder, tablename
             cursor = tweepy.Cursor(api.user_timeline, id=curr_id, summary=False, tweet_mode="extended",
                                    include_entities=True).items()
         try:
+            counter = 0
             for post in cursor:
                 dc = {}
                 curr_post = post._json
@@ -142,17 +143,21 @@ def crawl_twitter(combined_id_auth_tup, db_credentials, output_folder, tablename
                     dc['retweeted_status_user_name'] = curr_post['retweeted_status']['user']['name']
                     dc['retweeted_status_user_handle'] = curr_post['retweeted_status']['user']['screen_name']
                 posts.append(dc)
+                counter += 1
+                if counter % 500 == 0:
+                    if conn:
+                        insert_into_postgres(posts, conn, tablename, curr_id)
+                    else:
+                        if not os.path.exists(output_folder):
+                            os.mkdir(output_folder)
+                        csv_file = os.path.join(output_folder, curr_id + ".csv")
+                        df = pd.DataFrame(posts)
+                        df.to_csv(csv_file)
+                    posts = []
+
         except tweepy.error.TweepError as e:
             logging.error("Can't crawl tweet, possibly parser error: " + str(curr_id) + " exception: " + str(e))
-        if conn:
-            insert_into_postgres(posts, conn, tablename, curr_id)
-            conn.close()
-        else:
-            if not os.path.exists(output_folder):
-                os.mkdir(output_folder)
-            csv_file = os.path.join(output_folder, curr_id + ".csv")
-            df = pd.DataFrame(posts)
-            df.to_csv(csv_file)
+
         mark_handle_crawled(curr_id)
     except tweepy.error.TweepError as e:
         logging.error("Can't crawl ID, error in Cursor" + str(curr_id) + " exception: " + str(e))
