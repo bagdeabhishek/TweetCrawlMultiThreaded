@@ -160,7 +160,7 @@ def crawl_twitter(combined_id_auth_tup, db_credentials, output_folder, tablename
                                 csv_file = os.path.join(output_folder, curr_id + ".csv")
                                 df = pd.DataFrame(posts)
                                 df.to_csv(csv_file)
-                            last_id_pagination = posts[-1]['id']
+                            last_id_pagination = int(posts[-1]['id'])
                             posts = []
                 else:
                     break
