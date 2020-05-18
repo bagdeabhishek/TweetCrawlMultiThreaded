@@ -166,7 +166,6 @@ def crawl_twitter(combined_id_auth_tup, db_credentials, output_folder, tablename
                     break
             except tweepy.error.TweepError as e:
                 logging.error("Can't crawl tweet, possibly parser error: " + str(curr_id) + " exception: " + str(e))
-            page += 1
         mark_handle_crawled(curr_id)
     except tweepy.error.TweepError as e:
         logging.error("Can't crawl ID, error in Cursor" + str(curr_id) + " exception: " + str(e))
