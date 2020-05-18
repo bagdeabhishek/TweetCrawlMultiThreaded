@@ -154,7 +154,7 @@ def crawl_twitter(combined_id_auth_tup, db_credentials, output_folder, tablename
                             posts = []
                 else:
                     break
-            except tweepy.error.TweepError as e:
+            except Exception as e:
                 logging.error("Can't crawl tweet, possibly parser error: " + str(curr_id) + " exception: " + str(e))
         if conn:
             failed_tweets += insert_into_postgres(posts, conn, tablename, curr_id)
