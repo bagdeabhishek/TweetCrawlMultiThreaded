@@ -5,7 +5,7 @@ import getpass
 import logging
 import os
 import sys
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from itertools import repeat
 
 import pandas as pd
@@ -203,8 +203,7 @@ def init_crawler(no_of_threads, auth_list, db_credentials, handles_file, target_
         combined_tuple_handle_auth.append((handle, api_list[counter % len(auth_list)]))
         counter += 1
     chunk_size = 1
-    executor = ThreadPoolExecutor(max_workers=int(no_of_threads)) if sys.platform == "darwin" else ProcessPoolExecutor(
-        max_workers=int(no_of_threads))
+    executor = ThreadPoolExecutor(max_workers=int(no_of_threads))
     with executor:
         executor.map(crawl_twitter, combined_tuple_handle_auth, repeat(db_credentials), repeat(target_folder),
                      repeat(db_credentials['tablename']), repeat(trending), chunksize=chunk_size)
