@@ -112,46 +112,51 @@ def crawl_twitter(combined_id_auth_tup, db_credentials, output_folder, tablename
             try:
                 if cursor:
                     for post in cursor:
-                        dc = {}
-                        curr_post = post._json
-                        dc['tweet_from'] = curr_post['user']['screen_name']
-                        dc['created_at'] = curr_post['created_at']
-                        ent_status_dct = curr_post.get("entities", False)
-                        if ent_status_dct:
-                            dc['hashtags'] = [x['text'] for x in curr_post['entities']['hashtags']]
-                            dc['urls'] = [x['expanded_url'] for x in curr_post['entities']['urls']]
-                            dc['user_mentions_id'] = [x['id'] for x in curr_post['entities']['user_mentions']]
-                            if 'media' in ent_status_dct:
-                                dc['media'] = [x['media_url_https'] for x in curr_post['entities']['media']]
-                            dc['user_mentions_name'] = [x['screen_name'] for x in
-                                                        curr_post['entities']['user_mentions']]
-                        origin_raw_html = BeautifulSoup(curr_post['source'], 'html.parser').a
-                        dc['origin_device'] = origin_raw_html.string if origin_raw_html else None
-                        dc['favorite_count'] = curr_post['favorite_count']
-                        dc['text'] = curr_post['full_text']
-                        dc['id'] = curr_post['id']
-                        dc['in_reply_to_screen_name'] = curr_post['in_reply_to_screen_name']
-                        dc['in_reply_to_user_id'] = curr_post['in_reply_to_user_id']
-                        dc['in_reply_to_status_id'] = curr_post['in_reply_to_status_id']
-                        dc['retweet_count'] = curr_post['retweet_count']
-                        rt_status_dct = curr_post.get('retweeted_status', False)
-                        #         adding retweet information because it is important.
-                        if rt_status_dct:
-                            dc['retweeted_status_text'] = curr_post['retweeted_status']['full_text']
-                            dc['retweeted_status_url'] = [x['expanded_url'] for x in
-                                                          curr_post['retweeted_status']['entities']['urls']]
-                            dc['retweeted_status_id'] = curr_post['retweeted_status']['id']
-                            dc['retweeted_status_user_name'] = curr_post['retweeted_status']['user']['name']
-                            dc['retweeted_status_user_handle'] = curr_post['retweeted_status']['user']['screen_name']
-                        posts.append(dc)
-                        counter += 1
-                        if counter % 50 == 0:
-                            if conn:
-                                failed_tweets += insert_into_postgres(posts, conn, tablename, curr_id)
-                            else:
-                                write_to_csv(output_folder, curr_id, posts)
-                            last_id_pagination = int(posts[-1]['id'])
-                            posts = []
+                        try:
+                            dc = {}
+                            curr_post = post._json
+                            dc['tweet_from'] = curr_post['user']['screen_name']
+                            dc['created_at'] = curr_post['created_at']
+                            ent_status_dct = curr_post.get("entities", False)
+                            if ent_status_dct:
+                                dc['hashtags'] = [x['text'] for x in curr_post['entities']['hashtags']]
+                                dc['urls'] = [x['expanded_url'] for x in curr_post['entities']['urls']]
+                                dc['user_mentions_id'] = [x['id'] for x in curr_post['entities']['user_mentions']]
+                                if 'media' in ent_status_dct:
+                                    dc['media'] = [x['media_url_https'] for x in curr_post['entities']['media']]
+                                dc['user_mentions_name'] = [x['screen_name'] for x in
+                                                            curr_post['entities']['user_mentions']]
+                            origin_raw_html = BeautifulSoup(curr_post['source'], 'html.parser').a
+                            dc['origin_device'] = origin_raw_html.string if origin_raw_html else None
+                            dc['favorite_count'] = curr_post['favorite_count']
+                            dc['text'] = curr_post['full_text']
+                            dc['id'] = curr_post['id']
+                            dc['in_reply_to_screen_name'] = curr_post['in_reply_to_screen_name']
+                            dc['in_reply_to_user_id'] = curr_post['in_reply_to_user_id']
+                            dc['in_reply_to_status_id'] = curr_post['in_reply_to_status_id']
+                            dc['retweet_count'] = curr_post['retweet_count']
+                            rt_status_dct = curr_post.get('retweeted_status', False)
+                            #         adding retweet information because it is important.
+                            if rt_status_dct:
+                                dc['retweeted_status_text'] = curr_post['retweeted_status']['full_text']
+                                dc['retweeted_status_url'] = [x['expanded_url'] for x in
+                                                              curr_post['retweeted_status']['entities']['urls']]
+                                dc['retweeted_status_id'] = curr_post['retweeted_status']['id']
+                                dc['retweeted_status_user_name'] = curr_post['retweeted_status']['user']['name']
+                                dc['retweeted_status_user_handle'] = curr_post['retweeted_status']['user'][
+                                    'screen_name']
+                            posts.append(dc)
+                            counter += 1
+                            if counter % 50 == 0:
+                                if conn:
+                                    failed_tweets += insert_into_postgres(posts, conn, tablename, curr_id)
+                                else:
+                                    write_to_csv(output_folder, curr_id, posts)
+                                last_id_pagination = int(posts[-1]['id'])
+                                posts = []
+                        except Exception as e:
+                            counter -= 1
+                            continue
                 else:
                     break
             except Exception as e:
