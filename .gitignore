@@ -4,3 +4,5 @@ venv
 twitteraccesscodes.csv
 handles.txt
 handles.txt.bk
+crawled.txt
+crawled.txt.bk

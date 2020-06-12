@@ -78,7 +78,7 @@ def init_twitterAPI(dct):
     access_token_secret = dct['access_token_secret']
     auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
     auth.set_access_token(access_token, access_token_secret)
-    api = tweepy.auth.API(auth, wait_on_rate_limit=True)
+    api = tweepy.auth.API(auth, wait_on_rate_limit=True, retry_count=3, retry_errors=[104])
     return api
 
 
