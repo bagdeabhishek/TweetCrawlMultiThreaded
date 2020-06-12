@@ -299,9 +299,9 @@ def get_uncrawled_handles(trending_topics):
     current_queries = [trend['name'] for trend in trending_topics[0]['trends']]
     try:
         crawled_queries = []
-        with open(PICKLE_FILE_CRAWLED_DATA, 'r') as f:
+        with open(PICKLE_FILE_CRAWLED_DATA, 'r', encoding="utf-8") as f:
             for line in f:
-                crawled_queries.append(line.strip().encode('utf8'))
+                crawled_queries.append(line.strip())
         queries_to_crawl = list(set(current_queries).difference(set(crawled_queries)))
         if len(queries_to_crawl) <= 0:
             sys.exit("No new queries to crawl, exiting")
