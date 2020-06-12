@@ -5,7 +5,7 @@ import getpass
 import logging
 import os
 import sys
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor,ProcessPoolExecutor
 from itertools import repeat
 
 import pandas as pd
@@ -87,9 +87,20 @@ def mark_handle_crawled(curr_id):
         f.write(curr_id + '\n')
     return
 
+def set_log_file():
+    process_number = int(os.getpid()) - int(PARENT_PROCESS_PID)
+    logfile = f"./tweetCrawlerLog/tweetCrawler.{process_number}.log"
+    logger = logging.getLogger()
+    file_handler = logging.FileHandler(filename=logfile, mode="a", encoding="utf-8")
+    logger.addHandler(file_handler)
+    logger.setLevel("INFO")
+    
+    
+ 
 
 def crawl_twitter(combined_id_auth_tup, db_credentials, output_folder, tablename, search=False):
     try:
+        set_log_file()
         posts = []
         curr_id, api = combined_id_auth_tup
         last_id_pagination = -1
@@ -203,7 +214,8 @@ def init_crawler(no_of_threads, auth_list, db_credentials, handles_file, target_
         combined_tuple_handle_auth.append((handle, api_list[counter % len(auth_list)]))
         counter += 1
     chunk_size = 1
-    executor = ThreadPoolExecutor(max_workers=int(no_of_threads))
+    executor = ProcessPoolExecutor(max_workers=int(no_of_threads))
+    logging.getLogger().handlers = []
     with executor:
         executor.map(crawl_twitter, combined_tuple_handle_auth, repeat(db_credentials), repeat(target_folder),
                      repeat(db_credentials['tablename']), repeat(trending), chunksize=chunk_size)
@@ -369,7 +381,8 @@ def get_conf_user():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    PARENT_PROCESS_PID = os.getpid()
+    set_log_file() 
     configuration = get_conf_user()
     init_crawler(no_of_threads=configuration["threads"], auth_list=configuration['authcsv'],
                  db_credentials=configuration['db_credentials'],
